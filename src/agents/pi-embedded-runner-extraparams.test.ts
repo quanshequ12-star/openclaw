@@ -4,6 +4,38 @@ import { describe, expect, it, vi } from "vitest";
 import { applyExtraParamsToAgent, resolveExtraParams } from "./pi-embedded-runner.js";
 import { log } from "./pi-embedded-runner/logger.js";
 
+function isAnthropicMessagesModel(model: unknown): model is Model<"anthropic-messages"> {
+  if (!model || typeof model !== "object") {
+    return false;
+  }
+  return (model as { api?: unknown }).api === "anthropic-messages";
+}
+
+function expectAnthropicMessagesModel(model: unknown): Model<"anthropic-messages"> {
+  expect(isAnthropicMessagesModel(model)).toBe(true);
+  if (!isAnthropicMessagesModel(model)) {
+    throw new Error("Expected anthropic-messages model candidate in test setup");
+  }
+  return model;
+}
+
+describe("anthropic model test guard", () => {
+  it("accepts anthropic-messages model-like candidates", () => {
+    expect(
+      isAnthropicMessagesModel({
+        api: "anthropic-messages",
+        provider: "anthropic",
+        id: "claude-sonnet-4-6",
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects non-anthropic model candidates", () => {
+    expect(isAnthropicMessagesModel({ api: "openai-completions", id: "gpt-5" })).toBe(false);
+    expect(isAnthropicMessagesModel({ provider: "anthropic" })).toBe(false);
+  });
+});
+
 describe("resolveExtraParams", () => {
   it("returns undefined with no model config", () => {
     const result = resolveExtraParams({
@@ -757,7 +789,7 @@ describe("applyExtraParamsToAgent", () => {
 
     applyExtraParamsToAgent(agent, undefined, "kimi-coding", "k2p5", undefined, "low");
 
-    const model = {
+    const modelCandidate = {
       api: "anthropic-messages",
       provider: "kimi-coding",
       id: "k2p5",
@@ -765,7 +797,8 @@ describe("applyExtraParamsToAgent", () => {
       compat: {
         requiresOpenAiAnthropicToolPayload: true,
       },
-    } as Model<"anthropic-messages">;
+    };
+    const model = expectAnthropicMessagesModel(modelCandidate);
     const context: Context = { messages: [] };
     void agent.streamFn?.(model, context, {});
 
@@ -804,12 +837,13 @@ describe("applyExtraParamsToAgent", () => {
 
     applyExtraParamsToAgent(agent, undefined, "anthropic", "claude-sonnet-4-6", undefined, "low");
 
-    const model = {
+    const modelCandidate = {
       api: "anthropic-messages",
       provider: "anthropic",
       id: "claude-sonnet-4-6",
       baseUrl: "https://api.anthropic.com",
-    } as Model<"anthropic-messages">;
+    };
+    const model = expectAnthropicMessagesModel(modelCandidate);
     const context: Context = { messages: [] };
     void agent.streamFn?.(model, context, {});
 
